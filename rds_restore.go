@@ -33,6 +33,7 @@ func run() int {
 		securitygroup          string
 		restoredmasterpassword string
 		dbparametergroup       string
+		dbstoragetype          string
 		dbType                 string
 		waitingDbTimeInMinutes int
 		err                    error
@@ -44,6 +45,7 @@ func run() int {
 	flag.StringVar(&securitygroup, "securitygroup", "", "The securitygroup of the restored RDS")
 	flag.StringVar(&restoredmasterpassword, "restoredmasterpassword", "", "The desired password of the restored RDS")
 	flag.StringVar(&dbparametergroup, "dbparametergroup", "", "The desired db parametergroup of the restored RDS")
+	flag.StringVar(&dbstoragetype, "dbstoragetype", "", "The desired db storagetype of the restored RDS")
 	flag.StringVar(&dbType, "dbtype", "", "The desired db type of the restored RDS")
 	flag.IntVar(&waitingDbTimeInMinutes, "waitingDbTimeInMinutes", defaultWaitingDbTimeInMinutes, "The desired waiting time in minutes for the restored RDS. This is required to apply the changes to the restored RDS")
 
@@ -67,6 +69,9 @@ func run() int {
 	if dbparametergroup != "" {
 		os.Setenv("dbparametergroup", dbparametergroup)
 	}
+	if dbstoragetype != "" {
+		os.Setenv("dbstoragetype", dbstoragetype)
+	}
 	if waitingDbTimeInMinutes != defaultWaitingDbTimeInMinutes {
 		os.Setenv("waitingDbTimeInMinutes", string(rune(waitingDbTimeInMinutes)))
 	}
@@ -86,7 +91,7 @@ func run() int {
 	}
 
 	printInfo("Creating restored DB instance")
-	restoreresult, err := restoreDBInstanceToPointInTime(db, dbr, region, dbType, securitygroup, dbparametergroup)
+	restoreresult, err := restoreDBInstanceToPointInTime(db, dbr, region, dbType, securitygroup, dbparametergroup, dbstoragetype)
 	if err != nil {
 		printError(err)
 		return 1
@@ -198,7 +203,7 @@ func deleteRestoredDBInstance(dbr string, region string) (bool, error) {
 }
 
 //Restores database
-func restoreDBInstanceToPointInTime(db string, dbr string, region string, dbType string, securitygroup string, dbparametergroup string) (bool, error) {
+func restoreDBInstanceToPointInTime(db string, dbr string, region string, dbType string, securitygroup string, dbparametergroup string, dbstoragetype string) (bool, error) {
 	svc := rds.New(session.New(), &aws.Config{Region: aws.String(region)})
 	now := time.Now()
 	nowSubstractTenMinutes := now.Add(-10 * time.Minute)
@@ -212,6 +217,7 @@ func restoreDBInstanceToPointInTime(db string, dbr string, region string, dbType
 		VpcSecurityGroupIds:        aws.StringSlice([]string{securitygroup}),
 		DBParameterGroupName:       aws.String(dbparametergroup),
 		AutoMinorVersionUpgrade:    aws.Bool(false),
+		StorageType:                aws.String(dbstoragetype),
 	}
 
 	_, err := svc.RestoreDBInstanceToPointInTime(input)
